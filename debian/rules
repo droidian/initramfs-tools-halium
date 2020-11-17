@@ -1,7 +1,17 @@
 #!/usr/bin/make -f
 
+DEB_TARGET_ARCH = $(shell dpkg-architecture -qDEB_TARGET_ARCH)
+DEB_TARGET_MULTIARCH = $(shell dpkg-architecture -qDEB_TARGET_MULTIARCH)
+
 %:
 	dh $@
+
+override_dh_auto_build:
+	./build-initrd-nochroot.sh
+
+override_dh_auto_install:
+	mkdir -p $(CURDIR)/debian/linux-initramfs-halium-generic/usr/lib/$(DEB_TARGET_MULTIARCH)/halium-generic-initramfs/
+	cp -v $(CURDIR)/out/* $(CURDIR)/debian/linux-initramfs-halium-generic/usr/lib/$(DEB_TARGET_MULTIARCH)/halium-generic-initramfs/
 
 override_dh_auto_test:
 	@set -e; for f in etc/initramfs/post-update.d/* hooks/* scripts/panic/telnet scripts/halium usr/sbin/*; do \
