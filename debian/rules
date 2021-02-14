@@ -7,11 +7,22 @@ DEB_HOST_MULTIARCH = $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 	dh $@
 
 override_dh_auto_build:
-	./build-initrd-nochroot.sh
+	WITH_HYBRIS_MOBIAN_EXTRAS="no" \
+	OUT="./out" \
+	TARGET_NAME="halium-generic" \
+	    ./build-initrd-nochroot.sh
+
+	WITH_HYBRIS_MOBIAN_EXTRAS="yes" \
+	OUT="./out-hybris-mobian" \
+	TARGET_NAME="hybris-mobian-generic" \
+	    ./build-initrd-nochroot.sh
 
 override_dh_auto_install:
 	mkdir -p $(CURDIR)/debian/linux-initramfs-halium-generic/usr/lib/$(DEB_HOST_MULTIARCH)/halium-generic-initramfs/
 	cp -v $(CURDIR)/out/* $(CURDIR)/debian/linux-initramfs-halium-generic/usr/lib/$(DEB_HOST_MULTIARCH)/halium-generic-initramfs/
+
+	mkdir -p $(CURDIR)/debian/linux-initramfs-hybris-mobian-generic/usr/lib/$(DEB_HOST_MULTIARCH)/hybris-mobian-generic-initramfs/
+	cp -v $(CURDIR)/out-hybris-mobian/* $(CURDIR)/debian/linux-initramfs-hybris-mobian-generic/usr/lib/$(DEB_HOST_MULTIARCH)/hybris-mobian-generic-initramfs/
 
 override_dh_auto_test:
 	@set -e; for f in etc/initramfs/post-update.d/* hooks/* scripts/panic/telnet scripts/halium usr/sbin/*; do \

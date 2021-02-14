@@ -13,6 +13,8 @@ Build-Depends: debhelper (>= 9),
                busybox-static,
                libc6-dev,
                libssl-dev,
+               plymouth,
+               mobian-plymouth-theme,
 Standards-Version: 4.1.3
 
 Package: initramfs-tools-halium
@@ -40,6 +42,19 @@ Depends: ${shlibs:Depends},
 Multi-Arch: same
 Description: pre-built generic initramfs image for halium ports
  This package contains a pre-built initramfs image for halium
+ ports.
+ .
+ Note: this package will only put the initramfs image in-place,
+ it's the responsibility of build systems to do something meaningful
+ with it.
+
+Package: linux-initramfs-hybris-mobian-generic
+Architecture: any
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+Multi-Arch: same
+Description: pre-built generic initramfs image for hybris-mobian ports
+ This package contains a pre-built initramfs image for hybris-mobian
  ports.
  .
  Note: this package will only put the initramfs image in-place,

@@ -47,6 +47,8 @@ error() {
 }
 
 [ -n "${OUT}" ] || OUT="./out"
+[ -n "${WITH_HYBRIS_MOBIAN_EXTRAS}" ] || WITH_HYBRIS_MOBIAN_EXTRAS="no"
+[ -n "${TARGET_NAME}" ] || TARGET_NAME="halium-generic"
 
 info "Starting initramfs build"
 
@@ -61,6 +63,13 @@ trap cleanup INT EXIT
 mkdir -p ${tmpdir}/etc/initramfs-tools
 cp -R /etc/initramfs-tools/* ${tmpdir}/etc/initramfs-tools/
 
+if [ "${WITH_HYBRIS_MOBIAN_EXTRAS}" != "yes" ]; then
+	# Remove hybris-mobian extras, such as plymouth
+	for feature in plymouth; do
+		touch ${tmpdir}/etc/initramfs-tools/hooks/${feature}
+	done
+fi
+
 # Merge halium files
 cp -av conf/halium ${tmpdir}/etc/initramfs-tools/conf.d
 cp -av scripts/* ${tmpdir}/etc/initramfs-tools/scripts
@@ -68,4 +77,4 @@ cp -av hooks/* ${tmpdir}/etc/initramfs-tools/hooks
 
 # Finally build
 mkdir -p ${OUT}
-exec /usr/sbin/mkinitramfs -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-halium-generic -v
+exec /usr/sbin/mkinitramfs -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-${TARGET_NAME} -v
