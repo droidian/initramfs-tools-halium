@@ -66,6 +66,9 @@ cp -av conf/halium ${tmpdir}/etc/initramfs-tools/conf.d
 cp -av scripts/* ${tmpdir}/etc/initramfs-tools/scripts
 cp -av hooks/* ${tmpdir}/etc/initramfs-tools/hooks
 
+# Set plymouth default theme
+plymouth-set-default-theme -R droidian
+
 # Finally build
 mkdir -p ${OUT}
 exec /usr/sbin/mkinitramfs -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-halium-generic -v
