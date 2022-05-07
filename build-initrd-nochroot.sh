@@ -71,4 +71,11 @@ plymouth-set-default-theme -R droidian
 
 # Finally build
 mkdir -p ${OUT}
-exec /usr/sbin/mkinitramfs -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-halium-generic -v
+
+# Patch mkinitramfs to remove supported compression check
+sed \
+	's|while ! grep -q "^$kconfig_sym=y" "/boot/config-${version}"|while false|' \
+	/usr/sbin/mkinitramfs \
+	> ${tmpdir}/mkinitramfs
+
+exec /bin/bash ${tmpdir}/mkinitramfs -c gzip -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-halium-generic -v
