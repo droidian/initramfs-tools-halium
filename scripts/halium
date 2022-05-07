@@ -290,6 +290,51 @@ resize_userdata_if_needed() {
 	fi
 }
 
+resize_lvm_if_needed() {
+	# Like resize_userdata_if_needed, but for devices with the droidian
+	# LVM vg in userdata.
+	#
+	# Note: this is meant to be done as an online resize. Thus, the stamp
+	# file is checked on the mounted rootfs partition.
+
+	pv=${1}
+	vg=${2}
+	lv=${3}
+
+	if [ ! -e "/halium-system/var/lib/halium/requires-lvm-resize" ]; then
+		# Bye bye
+		return
+	fi
+
+	part="/dev/${vg}/${lv}"
+
+	# Resize the underlying Physical Volume
+	if ! lvm pvresize ${pv}; then
+		tell_kmsg "Unable to resize PV ${pv}"
+		return
+	fi
+
+	# Now resize the rootfs LV with all the free extents
+	if ! lvm lvresize -l +100%FREE ${part}; then
+		tell_kmsg "Unable to resize LV ${lv}"
+		return
+	fi
+
+	# Finally resize the filesystem
+	if [ "$(blkid ${part} -o value -s TYPE)" == "ext4" ]; then
+		e2fsck -fy ${part}
+
+		if ! resize2fs -f ${part}; then
+			tell_kmsg "Unable to resize ext4 partition ${part}"
+			return
+		fi
+	else
+		tell_kmsg "Unsupported filesystem on ${part}"
+	fi
+
+	rm -f /halium-system/var/lib/halium/requires-lvm-resize
+}
+
 identify_file_layout() {
 	# Determine if we have a Halium rootfs.img & system.img
 
@@ -476,38 +521,82 @@ mountroot() {
 		halium_panic "Couldn't find data partition."
 	fi
 
-	tell_kmsg "checking filesystem integrity for the userdata partition"
-	# Mounting and umounting first, let the kernel handle the journal and
-	# orphaned inodes (faster than e2fsck). Then, just run e2fsck forcing -y.
-	# Also check the amount of time used by to check the filesystem.
-	fsck_start=$(date +%s)
-	mount -o errors=remount-ro $path /tmpmnt
-	umount /tmpmnt
-	e2fsck -y $path >/run/e2fsck.out 2>&1
-	fsck_end=$(date +%s)
-	tell_kmsg "checking filesystem for userdata took (including e2fsck) $((fsck_end - fsck_start)) seconds"
-
-	resize_userdata_if_needed ${path}
-
-	tell_kmsg "mounting $path"
-
-	# Mount the data partition to a temporary mount point
-	# FIXME: data=journal used on ext4 as a workaround for bug 1387214
-	[ `blkid $path -o value -s TYPE` = "ext4" ] && OPTIONS="data=journal,"
-	mount -o discard,$OPTIONS $path /tmpmnt
-
-	# Set $_syspart if it is specified as systempart= on the command line
-	if grep -q systempart= /proc/cmdline; then
+	# Check if we should prefer LVM mounts. If that's the case, try
+	# mounting the droidian-rootfs LV first, then fallback to the standard
+	# halium way (where we assume that userdata is a mountable partition)
+	if grep -q droidian.lvm /proc/cmdline; then
 		for x in $(cat /proc/cmdline); do
 			case ${x} in
-			systempart=*)
-				_syspart=${x#*=}
+			droidian.lvm.prefer)
+				use_lvm="yes"
+				;;
+			droidian.lvm.vg=*)
+				search_vg=${x#*=}
+				;;
+			droidian.lvm.root_lv=*)
+				root_lv=${x#*=}
 				;;
 			esac
 		done
+
+		# Set default search vgs and root_lv
+		[ -z "${search_vg}" ] && search_vg="droidian sailfish"
+		[ -z "${root_lv}" ] && root_lv="droidian-rootfs"
 	fi
 
-	identify_file_layout
+	if [ "${use_lvm}" == "yes" ]; then
+		for try in 1 2 3; do
+			for vg in ${search_vg}; do
+				if lvm vgchange -ay ${vg} && [ -e "/dev/${vg}/droidian-rootfs" ]; then
+					tell_kmsg "Found LVM VG ${vg}"
+					_syspart="/dev/${vg}/${root_lv}"
+					file_layout="partition"
+					break
+				fi
+			done
+			[ -n "${_syspart}" ] && break
+			sleep 2
+		done
+
+		# If _syspart is empty, LVM discovery failed. Let's continue
+		# normally
+		[ -z "${_syspart}" ] && unset use_lvm
+	fi
+
+	if [ "${use_lvm}" != "yes" ]; then
+		tell_kmsg "checking filesystem integrity for the userdata partition"
+		# Mounting and umounting first, let the kernel handle the journal and
+		# orphaned inodes (faster than e2fsck). Then, just run e2fsck forcing -y.
+		# Also check the amount of time used by to check the filesystem.
+		fsck_start=$(date +%s)
+		mount -o errors=remount-ro $path /tmpmnt
+		umount /tmpmnt
+		e2fsck -y $path >/run/e2fsck.out 2>&1
+		fsck_end=$(date +%s)
+		tell_kmsg "checking filesystem for userdata took (including e2fsck) $((fsck_end - fsck_start)) seconds"
+
+		resize_userdata_if_needed ${path}
+
+		tell_kmsg "mounting $path"
+
+		# Mount the data partition to a temporary mount point
+		# FIXME: data=journal used on ext4 as a workaround for bug 1387214
+		[ `blkid $path -o value -s TYPE` = "ext4" ] && OPTIONS="data=journal,"
+		mount -o discard,$OPTIONS $path /tmpmnt
+
+		# Set $_syspart if it is specified as systempart= on the command line
+		if grep -q systempart= /proc/cmdline; then
+			for x in $(cat /proc/cmdline); do
+				case ${x} in
+				systempart=*)
+					_syspart=${x#*=}
+					;;
+				esac
+			done
+		fi
+
+		identify_file_layout
+	fi
 
 	# If both $imagefile and $_syspart are set, something is wrong. The strange
 	# output from this could be a clue in that situation.
@@ -525,6 +614,8 @@ mountroot() {
 	tell_kmsg "mounting system rootfs at /halium-system"
 	if [ -n "$_syspart" ]; then
 		mount -o rw $_syspart /halium-system
+
+		[ "${use_lvm}" == "yes" ] && resize_lvm_if_needed "${path}" "${vg}" "${root_lv}"
 	elif [ -f "$imagefile" ]; then
 		# Rootfs is an image file
 		mount -o loop,rw $imagefile /halium-system
@@ -604,7 +695,7 @@ mountroot() {
 
 		# Mounting userdata outside of /android, to avoid having LXC container access it
 		mkdir -p ${rootmnt}/userdata
-		mount --move /tmpmnt ${rootmnt}/userdata
+		[ "${use_lvm}" != "yes" ] && mount --move /tmpmnt ${rootmnt}/userdata
 
 		mount --move /android-rootfs ${rootmnt}/var/lib/lxc/android/rootfs
 		[ $ANDROID_IMAGE_MODE = "system" ] && mount -o rw,size=4096 -t tmpfs none ${rootmnt}/android
