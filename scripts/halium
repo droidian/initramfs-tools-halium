@@ -585,7 +585,8 @@ mountroot() {
 		mount -o discard,$OPTIONS $path /tmpmnt
 
 		# Set $_syspart if it is specified as systempart= on the command line
-		if grep -q systempart= /proc/cmdline; then
+		# If the .ignore_systempart flag is in the data partition, ignore
+		if grep -q systempart= /proc/cmdline && [ ! -e /tmpmnt/.ignore_systempart ]; then
 			for x in $(cat /proc/cmdline); do
 				case ${x} in
 				systempart=*)
