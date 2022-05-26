@@ -60,6 +60,14 @@ identify_boot_mode() {
 		androidboot.mode=*)
 			android_bootmode=${x#*=}
 			;;
+		# Android 9 system-as-root
+		skip_initramfs)
+			normal_boot="y"
+			;;
+		# Android 10+ recovery-as-boot
+		androidboot.force_normal_boot=1)
+			normal_boot="y"
+			;;
 		esac
 	done
 
@@ -79,6 +87,11 @@ identify_boot_mode() {
 		8) BOOT_MODE="android" ;; # Power off charging
 		9) BOOT_MODE="android" ;; # Low power charging
 		esac
+	fi
+
+	# System-as-root or a device without dedicated recovery partition
+	if [ -f /ramdisk-recovery.img ] && [ -z "$normal_boot" ]; then
+		BOOT_MODE="recovery"
 	fi
 
 	# On Android 8+ devices the 'android' boot mode is broken and should be avoided.
@@ -806,6 +819,21 @@ mountroot() {
 	# Determine whether we should boot to rootfs or Android
 	if [ "${HALIUM_RECOVERY}" == "yes" ]; then
 		halium_panic "Recovery mode ready"
+        fi
+
+	if [ "$BOOT_MODE" = "recovery" ]; then
+		tell_kmsg "Recovery boot mode for system-as-root devices"
+
+		# Clean up mounted partitions so recovery can manage them
+		umount -d /android-system /android-rootfs /halium-system /tmpmnt
+		dmsetup remove_all
+
+		mount -n -t tmpfs tmpfs ${rootmnt}
+		cd ${rootmnt}
+		cat /ramdisk-recovery.img | gzip -d | cpio -i
+		cd -
+		mkdir -p ${rootmnt}/sbin
+		ln -s ../init ${rootmnt}/sbin/init
 	elif ([ -e $imagefile ] || [ -n "$_syspart" ]) && [ "$BOOT_MODE" = "android" ]; then
 		# Bootloader says this is factory or charger mode, boot into Android.
 		tell_kmsg "Android boot mode for factory or charger mode"
