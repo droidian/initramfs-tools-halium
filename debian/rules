@@ -8,6 +8,7 @@ DEB_TARGET_MULTIARCH = $(shell dpkg-architecture -qDEB_TARGET_MULTIARCH)
 
 override_dh_auto_build:
 	./build-initrd-nochroot.sh
+	IS_RECOVERY="yes" ./build-initrd-nochroot.sh
 
 override_dh_auto_install:
 	mkdir -p $(CURDIR)/debian/linux-initramfs-halium-generic/usr/lib/$(DEB_TARGET_MULTIARCH)/halium-generic-initramfs/

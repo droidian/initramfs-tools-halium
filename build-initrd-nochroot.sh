@@ -65,6 +65,9 @@ cp -R /etc/initramfs-tools/* ${tmpdir}/etc/initramfs-tools/
 cp -av conf/halium ${tmpdir}/etc/initramfs-tools/conf.d
 cp -av scripts/* ${tmpdir}/etc/initramfs-tools/scripts
 cp -av hooks/* ${tmpdir}/etc/initramfs-tools/hooks
+if [ "${IS_RECOVERY}" == "yes" ]; then
+	cp -av hooks-recovery/* ${tmpdir}/etc/initramfs-tools/hooks
+fi
 
 # Set plymouth default theme
 plymouth-set-default-theme -R droidian
@@ -78,4 +81,8 @@ sed \
 	/usr/sbin/mkinitramfs \
 	> ${tmpdir}/mkinitramfs
 
-exec /bin/bash ${tmpdir}/mkinitramfs -c gzip -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-halium-generic -v
+if [ "${IS_RECOVERY}" == "yes" ]; then
+	exec /bin/bash ${tmpdir}/mkinitramfs -c gzip -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/recovery-initramfs.img-halium-generic -v
+else
+	exec /bin/bash ${tmpdir}/mkinitramfs -c gzip -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-halium-generic -v
+fi

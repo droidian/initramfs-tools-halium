@@ -661,8 +661,24 @@ mountroot() {
 
 	identify_boot_mode
 
+	# Check if this is a recovery image. If so, check the cmdline for
+	# hints on the current requested mode - we support booting the system
+	# even on recovery images
+	if grep -q halium.recovery /proc/cmdline; then
+		HALIUM_RECOVERY="yes"
+		for x in $(cat /proc/cmdline); do
+			case ${x} in
+			skip_initramfs|androidboot.force_normal_boot=1)
+				HALIUM_RECOVERY="no"
+				;;
+			esac
+		done
+	fi
+
 	# Determine whether we should boot to rootfs or Android
-	if ([ -e $imagefile ] || [ -n "$_syspart" ]) && [ "$BOOT_MODE" = "android" ]; then
+	if [ "${HALIUM_RECOVERY}" == "yes" ]; then
+		halium_panic "Recovery mode ready"
+	elif ([ -e $imagefile ] || [ -n "$_syspart" ]) && [ "$BOOT_MODE" = "android" ]; then
 		# Bootloader says this is factory or charger mode, boot into Android.
 		tell_kmsg "Android boot mode for factory or charger mode"
 

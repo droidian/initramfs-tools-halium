@@ -1,0 +1,24 @@
+#!/bin/sh -e
+
+MINKVER="2.6.24"
+PREREQ=""
+DEB_HOST_MULTIARCH=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
+
+# Output pre-requisites
+prereqs() {
+	echo "$PREREQ"
+}
+
+case "$1" in
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+
+copy_exec /usr/sbin/dropbear /sbin
+for so in $(ldconfig -p | sed -nr 's/^\s*libnss_files\.so\.[0-9]+\s.*=>\s*//p'); do
+    copy_exec "$so"
+done
