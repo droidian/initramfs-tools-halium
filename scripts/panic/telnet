@@ -109,6 +109,17 @@ inject_loop() {
 	echo "########################## inject loop done"
 }
 
+dropbear_start() {
+	# Required to store hostkeys
+	mkdir -p /etc/dropbear
+
+	# Allow passwordless authentication
+	sed -i 's|:x:|::|' /etc/passwd
+
+	# Finally start dropbear
+	dropbear -R -F -B -E
+}
+
 usb_setup "halium-initrd telnet 192.168.2.15"
 
 USB_IFACE=notfound
@@ -144,6 +155,22 @@ echo "########################## starting telnetd"
 # avoids problems with an unterminated pre-switch_root telnetd
 # hogging the port
 $EXPLICIT_BUSYBOX telnetd -b ${LOCAL_IP}:${TELNET_DEBUG_PORT} -l /bin/sh
+
+# Start dropbear if we should
+if grep -q halium.recovery /proc/cmdline; then
+	HALIUM_RECOVERY="yes"
+	for x in $(cat /proc/cmdline); do
+		case ${x} in
+		skip_initramfs|androidboot.force_normal_boot=1)
+			HALIUM_RECOVERY="no"
+			;;
+		esac
+	done
+fi
+
+if [ "${HALIUM_RECOVERY}" == "yes" ]; then
+	dropbear_start
+fi
 
 # For some reason this does not work in rootfs
 usb_info "Halium initrd Debug telnet on port $TELNET_DEBUG_PORT on $USB_IFACE $LOCAL_IP - also running udhcpd"
