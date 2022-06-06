@@ -117,7 +117,7 @@ dropbear_start() {
 	sed -i 's|:x:|::|' /etc/passwd
 
 	# Finally start dropbear
-	dropbear -R -F -B -E
+	dropbear -R -B -E
 }
 
 usb_setup "halium-initrd telnet 192.168.2.15"
