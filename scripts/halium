@@ -488,6 +488,60 @@ mount_kernel_modules() {
 	[ -e ${rootmnt}/android/system/lib/modules ] && mount --bind ${rootmnt}/android/system/lib/modules ${rootmnt}/lib/modules
 }
 
+unlock_encrypted_partition() {
+	part="${1}"
+	header="${2}"
+	name="${3}"
+
+	# FIXME: quit plymouth, it would be better to hide/reshow but we
+	# can't when using the drm backend
+	[ -e "/usr/bin/plymouth" ] && plymouth quit || true
+
+	halium_hook setup_touchscreen
+
+	tries="0"
+	while [ "${1}" ]; do
+		CRYPTTAB_TRIED="${tries}" unl0kr | droidian-encryption-helper --device "${part}" --header "${header}" --name "${name}" --rootmnt "${rootmnt}" --strip-newlines
+		err="${?}"
+		case "${err}" in
+			2)
+				# Wrong passphrase
+				tries="1" # Do not bother for now in keeping track how many
+				;;
+			0)
+				if [ ! -e /dev/mapper/${name} ]; then
+					halium_panic "Root partition unlocked, but device has not been mapped"
+				fi
+
+				break
+				;;
+			*)
+				# Unknown error
+				halium_panic "Unknown error ${err} while unlocking root partition"
+				break
+				;;
+		esac
+	done
+
+	halium_hook teardown_touchscreen
+}
+
+signal_root_move_done() {
+	# Signal to droidian-encryption-helper that the root move has
+	# been done so that it can chroot() into it
+
+	# No need to do this if the system is already encrypted
+	[ -e /run/droidian-encryption-helper.pid ] || return
+
+	touch /run/halium-mounted
+	count=0
+	while [ -e /run/halium-mounted ] && [ ${count} -lt 20 ]; do
+		sleep 1
+
+		let count=count+1
+	done
+}
+
 mountroot() {
 	# list of possible userdata partition names
 	partlist="userdata UDA DATAFS USERDATA"
@@ -560,18 +614,26 @@ mountroot() {
 			droidian.lvm.root_lv=*)
 				root_lv=${x#*=}
 				;;
+			droidian.lvm.reserved_lv=*)
+				reserved_lv=${x#*=}
+				;;
+			droidian.lvm.persistent_lv=*)
+				persistent_lv=${x#*=}
+				;;
 			esac
 		done
 
 		# Set default search vgs and root_lv
 		[ -z "${search_vg}" ] && search_vg="droidian sailfish"
 		[ -z "${root_lv}" ] && root_lv="droidian-rootfs"
+		[ -z "${reserved_lv}" ] && reserved_lv="droidian-reserved"
+		[ -z "${persistent_lv}" ] && persistent_lv="droidian-persistent"
 	fi
 
 	if [ "${use_lvm}" == "yes" ]; then
 		for try in 1 2 3; do
 			for vg in ${search_vg}; do
-				if lvm vgchange -ay ${vg} && [ -e "/dev/${vg}/droidian-rootfs" ]; then
+				if lvm vgchange -ay ${vg} && [ -e "/dev/${vg}/${root_lv}" ]; then
 					tell_kmsg "Found LVM VG ${vg}"
 					_syspart="/dev/${vg}/${root_lv}"
 					file_layout="partition"
@@ -584,7 +646,15 @@ mountroot() {
 
 		# If _syspart is empty, LVM discovery failed. Let's continue
 		# normally
-		[ -z "${_syspart}" ] && unset use_lvm
+		if [ -z "${_syspart}" ]; then
+			unset use_lvm
+		elif [ -e "/dev/${vg}/${reserved_lv}" ] && [ "$(blkid /dev/${vg}/${reserved_lv} -o value -s TYPE)" == "crypto_LUKS" ]; then
+			# LUKS header, we should unlock
+			unlocked_syspart_name="droidian_encrypted"
+			use_luks="yes"
+			unlock_encrypted_partition /dev/${vg}/${root_lv} /dev/${vg}/${reserved_lv} ${unlocked_syspart_name}
+			_syspart="/dev/mapper/${unlocked_syspart_name}"
+		fi
 	fi
 
 	if [ "${use_lvm}" != "yes" ]; then
@@ -709,6 +779,8 @@ mountroot() {
 		mount --move /android-rootfs ${rootmnt}
 		[ $ANDROID_IMAGE_MODE = "system" ] && mount --move /android-system ${rootmnt}/system
 
+		[ "${use_luks}" == "yes" ] && signal_root_move_done
+
 		# Mount all the Android partitions
 		mount_android_partitions "${rootmnt}/fstab*" ${rootmnt} /tmpmnt
 
@@ -733,6 +805,8 @@ mountroot() {
 
 		mount --move /halium-system ${rootmnt}
 		mkdir -p ${rootmnt}/android
+
+		[ "${use_luks}" == "yes" ] && signal_root_move_done
 
 		# Mounting userdata outside of /android, to avoid having LXC container access it
 		mkdir -p ${rootmnt}/userdata

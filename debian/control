@@ -18,6 +18,7 @@ Build-Depends: debhelper (>= 9),
                plymouth,
                plymouth-theme-droidian,
                unl0kr,
+               droidian-encryption-service,
                libc6-dev,
                libssl-dev,
 Standards-Version: 4.1.3
