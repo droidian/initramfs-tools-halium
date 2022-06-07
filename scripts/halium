@@ -1,5 +1,13 @@
 # Local filesystem mounting			-*- shell-script -*-
 
+if [ -e "/scripts/halium-hooks" ]; then
+	# Hook file found
+	source /scripts/halium-hooks
+	WITH_HOOKS="yes"
+else
+	WITH_HOOKS="no"
+fi
+
 _log_msg() {
 	if [ "$quiet" = "y" ]; then return; fi
 	printf "$@" > /dev/kmsg || true
@@ -21,6 +29,22 @@ halium_panic() {
 	REASON="$1"
 	tell_kmsg "PANIC for reason: $REASON"
 	panic $REASON
+}
+
+halium_hook() {
+	# Allows calling an user-defined hook. Hooks must go in /scripts/halium-hooks.
+	# Call this function like this:
+	#     halium_hook test
+	#
+	# In this example, it will check for and eventually call the halium_hook_test()
+	# function.
+
+	func="halium_hook_${1}"
+	shift
+
+	if [ "${WITH_HOOKS}" == "yes" ] && [ "$(type -t ${func})" == "${func}" ]; then
+		${func} ${@}
+	fi
 }
 
 identify_boot_mode() {
