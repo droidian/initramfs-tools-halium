@@ -31,3 +31,7 @@ copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libdl.so
 # Droidian: copy touchscreen rules
 mkdir -p "${DESTDIR}/etc/udev/rules.d"
 cp /etc/udev/rules.d/90-touchscreen.rules "${DESTDIR}/etc/udev/rules.d"
+
+# Droidian: copy /usr/share/X11/xkb
+mkdir -p "${DESTDIR}/usr/share/X11/xkb"
+cp -R /usr/share/X11/xkb/* "${DESTDIR}/usr/share/X11/xkb"
