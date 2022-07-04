@@ -631,6 +631,7 @@ mountroot() {
 	fi
 
 	if [ "${use_lvm}" == "yes" ]; then
+		lvm vgscan
 		for try in 1 2 3; do
 			for vg in ${search_vg}; do
 				if lvm vgchange -ay ${vg} && [ -e "/dev/${vg}/${root_lv}" ]; then
