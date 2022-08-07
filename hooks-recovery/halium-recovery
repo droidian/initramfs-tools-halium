@@ -19,6 +19,10 @@ esac
 . /usr/share/initramfs-tools/hook-functions
 
 copy_exec /usr/sbin/dropbear /sbin
+copy_exec /sbin/mke2fs /sbin
+copy_exec /bin/tar /sbin
+copy_exec /usr/bin/pigz /sbin
+
 for so in $(ldconfig -p | sed -nr 's/^\s*libnss_files\.so\.[0-9]+\s.*=>\s*//p'); do
     copy_exec "$so"
 done
