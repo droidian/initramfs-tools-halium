@@ -492,6 +492,7 @@ unlock_encrypted_partition() {
 	part="${1}"
 	header="${2}"
 	name="${3}"
+	is_recovery="${4}"
 
 	# FIXME: quit plymouth, it would be better to hide/reshow but we
 	# can't when using the drm backend
@@ -506,7 +507,12 @@ unlock_encrypted_partition() {
 		case "${err}" in
 			2)
 				# Wrong passphrase
-				tries="1" # Do not bother for now in keeping track how many
+				let tries=tries+1
+
+				if [ "${is_recovery}" == "yes" ] && [ "${tries}" > 5 ]; then
+					# Recovery requested, trigger panic after 5 failures
+					halium_panic "Unable to unlock root partition"
+				fi
 				;;
 			0)
 				if [ ! -e /dev/mapper/${name} ]; then
@@ -599,6 +605,22 @@ mountroot() {
 		halium_panic "Couldn't find data partition."
 	fi
 
+	# Check if this is a recovery image. If so, check the cmdline for
+	# hints on the current requested mode - we support booting the system
+	# even on recovery images
+	if grep -q halium.recovery /proc/cmdline; then
+		HALIUM_RECOVERY="yes"
+		for x in $(cat /proc/cmdline); do
+			case ${x} in
+			skip_initramfs|androidboot.force_normal_boot=1)
+				HALIUM_RECOVERY="no"
+				;;
+			esac
+		done
+	else
+		HALIUM_RECOVERY="no"
+	fi
+
 	# Check if we should prefer LVM mounts. If that's the case, try
 	# mounting the droidian-rootfs LV first, then fallback to the standard
 	# halium way (where we assume that userdata is a mountable partition)
@@ -653,7 +675,7 @@ mountroot() {
 			# LUKS header, we should unlock
 			unlocked_syspart_name="droidian_encrypted"
 			use_luks="yes"
-			unlock_encrypted_partition /dev/${vg}/${root_lv} /dev/${vg}/${reserved_lv} ${unlocked_syspart_name}
+			unlock_encrypted_partition /dev/${vg}/${root_lv} /dev/${vg}/${reserved_lv} ${unlocked_syspart_name} ${HALIUM_RECOVERY}
 			_syspart="/dev/mapper/${unlocked_syspart_name}"
 		fi
 	fi
@@ -755,20 +777,6 @@ mountroot() {
 	[ $ANDROID_IMAGE_MODE = "system" ] && extract_android_ramdisk
 
 	identify_boot_mode
-
-	# Check if this is a recovery image. If so, check the cmdline for
-	# hints on the current requested mode - we support booting the system
-	# even on recovery images
-	if grep -q halium.recovery /proc/cmdline; then
-		HALIUM_RECOVERY="yes"
-		for x in $(cat /proc/cmdline); do
-			case ${x} in
-			skip_initramfs|androidboot.force_normal_boot=1)
-				HALIUM_RECOVERY="no"
-				;;
-			esac
-		done
-	fi
 
 	# Determine whether we should boot to rootfs or Android
 	if [ "${HALIUM_RECOVERY}" == "yes" ]; then
