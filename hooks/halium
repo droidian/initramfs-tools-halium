@@ -35,3 +35,7 @@ cp /etc/udev/rules.d/90-touchscreen.rules "${DESTDIR}/etc/udev/rules.d"
 # Droidian: copy /usr/share/X11/xkb
 mkdir -p "${DESTDIR}/usr/share/X11/xkb"
 cp -R /usr/share/X11/xkb/* "${DESTDIR}/usr/share/X11/xkb"
+
+# Droidian: copy udev hwdb
+mkdir -p "${DESTDIR}/usr/lib/udev/hwdb.d"
+cp -R /usr/lib/udev/hwdb.d/* "${DESTDIR}/usr/lib/udev/hwdb.d"
