@@ -488,6 +488,24 @@ mount_kernel_modules() {
 	[ -e ${rootmnt}/android/system/lib/modules ] && mount --bind ${rootmnt}/android/system/lib/modules ${rootmnt}/lib/modules
 }
 
+load_kernel_modules() {
+	mkdir -p /lib/modules
+	cd /lib/modules
+	ln -sf /lib/modules "/lib/modules/$(uname -r)"
+
+	tell_kmsg "Loading kernel modules from $(pwd)"
+
+	cat modules.load | while read line; do
+		set -- $line
+		# Skip commented entries
+		[ "$1" = "#" ] && continue
+		modprobe -a "$1"
+	done
+
+	cd -
+}
+
+
 unlock_encrypted_partition() {
 	part="${1}"
 	header="${2}"
@@ -560,6 +578,13 @@ mountroot() {
 
 	# Put all of this script's output into /dev/kmsg
 	exec &>/dev/kmsg
+
+	load_kernel_modules
+	tell_kmsg "Finished loading kernel modules"
+	sleep 1
+
+	# busybox mdev -s
+	# udevadm trigger
 
 	# Mount root
 	#
@@ -741,7 +766,7 @@ mountroot() {
 		# Rootfs is a directory
 		mount -o bind /tmpmnt/halium-rootfs /halium-system
 	fi
-	
+
 	# Identify image mode: either "rootfs" or "system"
 	mkdir -p /android-rootfs
 	mkdir -p /android-system
