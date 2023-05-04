@@ -68,6 +68,12 @@ identify_boot_mode() {
 		androidboot.force_normal_boot=1)
 			normal_boot="y"
 			;;
+		# Android 12+ (GKI 2.0+) recovery-as-boot
+		bootconfig)
+			if grep -q 'androidboot.force_normal_boot = "1"' /proc/bootconfig; then
+				normal_boot="y"
+			fi
+			;;
 		esac
 	done
 
