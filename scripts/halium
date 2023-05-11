@@ -836,6 +836,10 @@ mountroot() {
 
 		mount -n -t tmpfs tmpfs ${rootmnt}
 		cd ${rootmnt}
+		if [ -d /lib/modules ]; then
+			mkdir -p lib/modules
+			mv /lib/modules/* lib/modules/
+		fi
 		cat /ramdisk-recovery.img | gzip -d | cpio -i
 		cd -
 		mkdir -p ${rootmnt}/sbin
