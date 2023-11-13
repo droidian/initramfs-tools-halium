@@ -81,8 +81,22 @@ sed \
 	/usr/sbin/mkinitramfs \
 	> ${tmpdir}/mkinitramfs
 
+info "Building initramfs with ${COMPRESSION} compression"
+
 if [ "${IS_RECOVERY}" == "yes" ]; then
-	exec /bin/bash ${tmpdir}/mkinitramfs -c gzip -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/recovery-initramfs.img-halium-generic -v
+	if [ "${COMPRESSION}" == "gzip" ]; then
+		exec /bin/bash ${tmpdir}/mkinitramfs -c gzip -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/recovery-initramfs.img-halium-generic -v
+	elif [ "${COMPRESSION}" == "lz4" ]; then
+		exec /bin/bash ${tmpdir}/mkinitramfs -c lz4 -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/recovery-initramfs.img-halium-generic-lz4 -v
+	else # gzip if not specified
+		exec /bin/bash ${tmpdir}/mkinitramfs -c gzip -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-halium-generic -v
+	fi
 else
-	exec /bin/bash ${tmpdir}/mkinitramfs -c gzip -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-halium-generic -v
+	if [ "${COMPRESSION}" == "gzip" ]; then
+		exec /bin/bash ${tmpdir}/mkinitramfs -c gzip -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-halium-generic -v
+	elif [ "${COMPRESSION}" == "lz4" ]; then
+		exec /bin/bash ${tmpdir}/mkinitramfs -c lz4 -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-halium-generic-lz4 -v
+	else # gzip if not specified
+		exec /bin/bash ${tmpdir}/mkinitramfs -c gzip -d ${tmpdir}/etc/initramfs-tools -o ${OUT}/initrd.img-halium-generic -v
+	fi
 fi
