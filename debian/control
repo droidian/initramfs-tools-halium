@@ -3,7 +3,7 @@ Section: utils
 Priority: optional
 Maintainer: Eugenio Paolantonio (g7) <me@medesimo.eu>
 XSBC-Original-Maintainer: Halium developers <admin@halium.org>
-Build-Depends: debhelper (>= 9),
+Build-Depends: debhelper (>= 13),
                lsb-release,
                fakeroot,
                dpkg-dev,
