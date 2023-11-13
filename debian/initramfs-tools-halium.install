@@ -2,6 +2,3 @@ conf/halium			usr/share/initramfs-tools/conf.d
 scripts/*			usr/share/initramfs-tools/scripts
 hooks/halium			usr/share/initramfs-tools/hooks
 fstab				usr/share/initramfs-tools-halium
-bootimg/*			usr/share/initramfs-tools-halium
-usr
-etc

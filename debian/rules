@@ -15,7 +15,7 @@ override_dh_auto_install:
 	cp -v $(CURDIR)/out/* $(CURDIR)/debian/linux-initramfs-halium-generic/usr/lib/$(DEB_TARGET_MULTIARCH)/halium-generic-initramfs/
 
 override_dh_auto_test:
-	@set -e; for f in etc/initramfs/post-update.d/* hooks/* scripts/panic/telnet scripts/halium usr/sbin/*; do \
+	@set -e; for f in hooks/* scripts/panic/telnet scripts/halium; do \
 	    echo "Checking sh syntax of $$f"; \
 	    sh -n $$f; \
 	done
