@@ -70,7 +70,7 @@ if [ "${IS_RECOVERY}" == "yes" ]; then
 fi
 
 # Set plymouth default theme
-plymouth-set-default-theme -R droidian
+#plymouth-set-default-theme -R droidian
 
 # Finally build
 mkdir -p ${OUT}
