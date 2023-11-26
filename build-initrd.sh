@@ -4,7 +4,7 @@ set -e
 
 export FLASH_KERNEL_SKIP=1
 export DEBIAN_FRONTEND=noninteractive
-DEFAULTMIRROR="https://deb.debian.org/debian"
+DEFAULTMIRROR="https://archive.debian.org/debian"
 APT_COMMAND="apt -y"
 
 usage() {
@@ -43,9 +43,9 @@ done
 [ -z $OUT ] && OUT=./out
 
 # list all packages needed for halium's initrd here
-[ -z $INCHROOTPKGS ] && INCHROOTPKGS="initramfs-tools dctrl-tools e2fsprogs libc6-dev zlib1g-dev libssl-dev busybox-static"
+[ -z $INCHROOTPKGS ] && INCHROOTPKGS="initramfs-tools dctrl-tools e2fsprogs libc6-dev zlib1g-dev libssl-dev busybox-static lvm2 cryptsetup xkb-data"
 
-BOOTSTRAP_BIN="qemu-debootstrap --arch $ARCH --variant=minbase"
+BOOTSTRAP_BIN="debootstrap --arch $ARCH --variant=minbase"
 
 umount_chroot() {
 	chroot $ROOT umount /sys >/dev/null 2>&1 || true
@@ -102,6 +102,12 @@ do_chroot $ROOT "$APT_COMMAND dist-upgrade"
 do_chroot $ROOT "$APT_COMMAND install $INCHROOTPKGS --no-install-recommends"
 DEB_HOST_MULTIARCH=$(chroot $ROOT dpkg-architecture -q DEB_HOST_MULTIARCH)
 
+# Droidian: copy touchscreen, keyboard data
+cp /etc/udev/rules.d/90-touchscreen.rules "${ROOT}/etc/udev/rules.d"
+cp -R /usr/share/X11/xkb/* "${ROOT}/usr/share/X11/xkb"
+mkdir -p "${ROOT}/usr/lib/udev/hwdb.d"
+cp -R /usr/lib/udev/hwdb.d/* "${ROOT}/usr/lib/udev/hwdb.d"
+
 cp -a conf/halium ${ROOT}/usr/share/initramfs-tools/conf.d
 cp -a scripts/* ${ROOT}/usr/share/initramfs-tools/scripts
 cp -a hooks/* ${ROOT}/usr/share/initramfs-tools/hooks
@@ -109,10 +115,10 @@ cp -a hooks/* ${ROOT}/usr/share/initramfs-tools/hooks
 VER="$ARCH"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/lib/$DEB_HOST_MULTIARCH"
 
-do_chroot $ROOT "update-initramfs -tc -ktouch-$VER -v"
+do_chroot $ROOT "update-initramfs -tc -khalium-generic -v"
 
 mkdir "$OUT" >/dev/null 2>&1 || true
-FILENAME=initrd.img-touch-$VER
+FILENAME=initrd.img-halium-generic
 cp "$ROOT/boot/${FILENAME}" "$OUT"
 cd "$OUT"
 sha256sum "${FILENAME}" > "${FILENAME}.sha256"
