@@ -25,6 +25,7 @@ Build-Depends: debhelper (>= 13),
                libc6-dev,
                libssl-dev,
                lz4,
+               debootstrap
 Standards-Version: 4.1.3
 
 Package: initramfs-tools-halium

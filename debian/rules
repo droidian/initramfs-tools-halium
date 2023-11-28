@@ -7,8 +7,9 @@ DEB_TARGET_MULTIARCH = $(shell dpkg-architecture -qDEB_TARGET_MULTIARCH)
 	dh $@
 
 override_dh_auto_build:
-	COMPRESSION="gzip" ./build-initrd-nochroot.sh
-	COMPRESSION="lz4" ./build-initrd-nochroot.sh
+	#COMPRESSION="gzip" ./build-initrd-nochroot.sh
+	#COMPRESSION="lz4" ./build-initrd-nochroot.sh
+	./build-initrd.sh -a $(DEB_TARGET_ARCH)
 	IS_RECOVERY="yes" COMPRESSION="gzip" ./build-initrd-nochroot.sh
 	IS_RECOVERY="yes" COMPRESSION="lz4" ./build-initrd-nochroot.sh
 
