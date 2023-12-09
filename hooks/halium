@@ -18,7 +18,38 @@ esac
 
 . /usr/share/initramfs-tools/hook-functions
 
+copy_exec /sbin/swapon /sbin
+copy_exec /sbin/e2fsck /sbin
+copy_exec /sbin/resize2fs /sbin
+copy_exec /bin/chown /bin
+copy_exec /bin/mount /bin
+copy_exec /sbin/dumpe2fs /sbin
+copy_exec /lib/$DEB_HOST_MULTIARCH/libz.so.1
+copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libcrypto.so
+if [ -e /usr/lib/$DEB_HOST_MULTIARCH/libdl.so.2 ]; then
+	# Bookworm+
+	copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libdl.so.2
+else
+	copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libdl.so
+fi
+
+# Droidian: copy Droidian stuff compiled against a more recent distribution
 if [ -e /orig ]; then
+	copy_file_downgrade() {
+		local type src target link_target
+
+		type="${1}"
+		src="${2}"
+		target="${3:-$2}"
+
+		copy_file "${type}" "${src}" "${target}"
+		if [ -n "${DROIDIAN_BOOTSTRAP_ROOT_PATH}" ]; then
+			/usr/sbin/chroot /orig env PATH="/usr/bin:/usr/sbin:/sbin:/bin" /usr/bin/glibc-downgrade 2.24 "${DROIDIAN_BOOTSTRAP_ROOT_PATH}/${DESTDIR}/${src}" || exit 1
+		else
+			echo "DROIDIAN_BOOTSTRAP_ROOT_PATH is not set. Downgrading will not work."
+		fi
+	}
+
 	# Re-define copy_exec on stretch, make it skip 'not found' on symbols
 	copy_exec() {
 		local src target x nonoptlib ret
@@ -26,7 +57,7 @@ if [ -e /orig ]; then
 		src="${1}"
 		target="${2:-$1}"
 
-		copy_file binary "${src}" "${target}" || return $(($? - 1))
+		copy_file_downgrade binary "${src}" "${target}" || return $(($? - 1))
 
 		# Copy the dependant libraries
 		for x in $(ldd "${src}" 2>/dev/null | sed -e '
@@ -46,31 +77,13 @@ if [ -e /orig ]; then
 				x="${nonoptlib}"
 			fi
 
-			copy_file library "${x}" || {
+			copy_file_downgrade library "${x}" || {
 				ret=$?
 				[ ${ret} = 1 ] || return $((ret - 1))
 			}
 		done
 	}
-fi
 
-copy_exec /sbin/swapon /sbin
-copy_exec /sbin/e2fsck /sbin
-copy_exec /sbin/resize2fs /sbin
-copy_exec /bin/chown /bin
-copy_exec /bin/mount /bin
-copy_exec /sbin/dumpe2fs /sbin
-copy_exec /lib/$DEB_HOST_MULTIARCH/libz.so.1
-copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libcrypto.so
-if [ -e /usr/lib/$DEB_HOST_MULTIARCH/libdl.so.2 ]; then
-	# Bookworm+
-	copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libdl.so.2
-else
-	copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libdl.so
-fi
-
-# Droidian: copy Droidian stuff compiled against a more recent distribution
-if [ -e /orig ]; then
 	LD_LIBRARY_PATH="/lib/${DEB_HOST_MULTIARCH}:/usr/lib/${DEB_HOST_MULTIARCH}:/orig/lib/${DEB_HOST_MULTIARCH}:/orig/usr/lib/${DEB_HOST_MULTIARCH}"
 	export LD_LIBRARY_PATH
 
@@ -79,6 +92,10 @@ if [ -e /orig ]; then
 	cp /orig/etc/unl0kr.conf "${DESTDIR}/etc"
 
 	copy_exec /orig/usr/sbin/droidian-encryption-helper
+
+	echo "Merging contents of ${DESTDIR}/orig"
+	cp -Rv ${DESTDIR}/orig/* "${DESTDIR}"
+	rm -rf ${DESTDIR}/orig
 
 	unset LD_LIBRARY_PATH
 fi

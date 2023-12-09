@@ -39,17 +39,19 @@ done
 [ -z $ARCH ] && ARCH="armhf"
 [ -z $MIRROR ] && MIRROR=$DEFAULTMIRROR
 [ -z $RELEASE ] && RELEASE="stretch"
-[ -z $ROOT ] && ROOT=./build/$ARCH
+[ -z $ROOT ] && ROOT=$PWD/build/$ARCH
 [ -z $OUT ] && OUT=./out
 
 # list all packages needed for halium's initrd here
-[ -z $INCHROOTPKGS ] && INCHROOTPKGS="initramfs-tools dctrl-tools e2fsprogs libc6-dev zlib1g-dev libssl-dev busybox-static lvm2 cryptsetup xkb-data libinput10 libpng16-16"
+[ -z $INCHROOTPKGS ] && INCHROOTPKGS="initramfs-tools dctrl-tools e2fsprogs libc6-dev zlib1g-dev libssl-dev busybox-static lvm2 cryptsetup xkb-data coreutils libinput10 libpng16-16"
 
 BOOTSTRAP_BIN="debootstrap --arch $ARCH --variant=minbase"
 
 umount_chroot() {
 	chroot $ROOT umount /sys >/dev/null 2>&1 || true
 	chroot $ROOT umount /proc >/dev/null 2>&1 || true
+	chroot $ROOT umount /orig/buildd/sources 2>&1 || true
+	chroot $ROOT umount /orig/buildd 2>&1 || true
 	chroot $ROOT umount /orig >/dev/null 2>&1 || true
 	echo
 }
@@ -60,6 +62,8 @@ do_chroot() {
 	CMD="$2"
 	echob "Executing \"$2\" in chroot"
 	mount -o bind / $ROOT/orig
+	mount -o bind /buildd $ROOT/orig/buildd
+	mount -o bind /buildd/sources $ROOT/orig/buildd/sources
 	chroot $ROOT mount -t proc proc /proc
 	chroot $ROOT mount -t sysfs sys /sys
 	chroot $ROOT $CMD
@@ -119,7 +123,7 @@ cp -a hooks/* ${ROOT}/usr/share/initramfs-tools/hooks
 VER="$ARCH"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/lib/$DEB_HOST_MULTIARCH"
 
-do_chroot $ROOT "update-initramfs -tc -khalium-generic -v"
+do_chroot $ROOT "env DROIDIAN_BOOTSTRAP_ROOT_PATH=$ROOT update-initramfs -tc -khalium-generic -v"
 
 mkdir "$OUT" >/dev/null 2>&1 || true
 FILENAME=initrd.img-halium-generic
