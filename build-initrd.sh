@@ -43,13 +43,14 @@ done
 [ -z $OUT ] && OUT=./out
 
 # list all packages needed for halium's initrd here
-[ -z $INCHROOTPKGS ] && INCHROOTPKGS="initramfs-tools dctrl-tools e2fsprogs libc6-dev zlib1g-dev libssl-dev busybox-static lvm2 cryptsetup xkb-data"
+[ -z $INCHROOTPKGS ] && INCHROOTPKGS="initramfs-tools dctrl-tools e2fsprogs libc6-dev zlib1g-dev libssl-dev busybox-static lvm2 cryptsetup xkb-data libinput10 libpng16-16"
 
 BOOTSTRAP_BIN="debootstrap --arch $ARCH --variant=minbase"
 
 umount_chroot() {
 	chroot $ROOT umount /sys >/dev/null 2>&1 || true
 	chroot $ROOT umount /proc >/dev/null 2>&1 || true
+	chroot $ROOT umount /orig >/dev/null 2>&1 || true
 	echo
 }
 
@@ -58,6 +59,7 @@ do_chroot() {
 	ROOT="$1"
 	CMD="$2"
 	echob "Executing \"$2\" in chroot"
+	mount -o bind / $ROOT/orig
 	chroot $ROOT mount -t proc proc /proc
 	chroot $ROOT mount -t sysfs sys /sys
 	chroot $ROOT $CMD
@@ -73,6 +75,8 @@ if [ ! -e $ROOT/.min-done ]; then
 	echob "Creating chroot with arch $ARCH in $ROOT"
 	mkdir build || true
 	$BOOTSTRAP_BIN $RELEASE $ROOT $MIRROR || cat $ROOT/debootstrap/debootstrap.log
+
+	mkdir -p $ROOT/orig
 
 	#sed -i 's/main$/main universe/' $ROOT/etc/apt/sources.list
 	sed -i 's,'"$DEFAULTMIRROR"','"$MIRROR"',' $ROOT/etc/apt/sources.list

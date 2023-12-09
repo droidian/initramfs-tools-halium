@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/sh -ex
 
 MINKVER="2.6.24"
 PREREQ=""
@@ -18,6 +18,42 @@ esac
 
 . /usr/share/initramfs-tools/hook-functions
 
+if [ -e /orig ]; then
+	# Re-define copy_exec on stretch, make it skip 'not found' on symbols
+	copy_exec() {
+		local src target x nonoptlib ret
+
+		src="${1}"
+		target="${2:-$1}"
+
+		copy_file binary "${src}" "${target}" || return $(($? - 1))
+
+		# Copy the dependant libraries
+		for x in $(ldd "${src}" 2>/dev/null | sed -e '
+			/\//!d;
+			/linux-gate/d;
+			/not found/d;
+			/=>/ {s/.*=>[[:blank:]]*\([^[:blank:]]*\).*/\1/};
+			s/[[:blank:]]*\([^[:blank:]]*\) (.*)/\1/' 2>/dev/null); do
+
+			# Try to use non-optimised libraries where possible.
+			# We assume that all HWCAP libraries will be in tls,
+			# sse2, vfp or neon.
+			nonoptlib=$(echo "${x}" | sed -e 's#/lib/\([^/]*/\)\?\(tls\|i686\|sse2\|neon\|vfp\).*/\(lib.*\)#/lib/\1\3#')
+			nonoptlib=$(echo "${nonoptlib}" | sed -e 's#-linux-gnu/\(tls\|i686\|sse2\|neon\|vfp\).*/\(lib.*\)#-linux-gnu/\2#')
+
+			if [ -e "${nonoptlib}" ]; then
+				x="${nonoptlib}"
+			fi
+
+			copy_file library "${x}" || {
+				ret=$?
+				[ ${ret} = 1 ] || return $((ret - 1))
+			}
+		done
+	}
+fi
+
 copy_exec /sbin/swapon /sbin
 copy_exec /sbin/e2fsck /sbin
 copy_exec /sbin/resize2fs /sbin
@@ -31,6 +67,20 @@ if [ -e /usr/lib/$DEB_HOST_MULTIARCH/libdl.so.2 ]; then
 	copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libdl.so.2
 else
 	copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libdl.so
+fi
+
+# Droidian: copy Droidian stuff compiled against a more recent distribution
+if [ -e /orig ]; then
+	LD_LIBRARY_PATH="/lib/${DEB_HOST_MULTIARCH}:/usr/lib/${DEB_HOST_MULTIARCH}:/orig/lib/${DEB_HOST_MULTIARCH}:/orig/usr/lib/${DEB_HOST_MULTIARCH}"
+	export LD_LIBRARY_PATH
+
+	ldd /orig/usr/bin/unl0kr
+	copy_exec /orig/usr/bin/unl0kr
+	cp /orig/etc/unl0kr.conf "${DESTDIR}/etc"
+
+	copy_exec /orig/usr/sbin/droidian-encryption-helper
+
+	unset LD_LIBRARY_PATH
 fi
 
 # Droidian: copy touchscreen rules
