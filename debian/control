@@ -24,6 +24,8 @@ Build-Depends: debhelper (>= 9),
                xkb-data,
                libc6-dev,
                libssl-dev,
+               libinput-tools,
+               evtest,
 Standards-Version: 4.1.3
 
 Package: initramfs-tools-halium
