@@ -30,6 +30,14 @@ copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libcrypto.so
 copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libdl.so.2
 copy_exec /usr/bin/evtest /bin
 
+# libinput: copy quirks
+mkdir -p "${DESTDIR}/usr/share/libinput"
+cp /usr/share/libinput/* "${DESTDIR}/usr/share/libinput"
+
+# libinput: copy libinput tools
+mkdir -p "${DESTDIR}/usr/libexec/libinput"
+cp /usr/libexec/libinput/* "${DESTDIR}/usr/libexec/libinput"
+
 # Droidian: copy touchscreen rules
 mkdir -p "${DESTDIR}/etc/udev/rules.d"
 cp /etc/udev/rules.d/90-touchscreen.rules "${DESTDIR}/etc/udev/rules.d"
