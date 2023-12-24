@@ -518,7 +518,8 @@ load_kernel_modules() {
 		set -- $line
 		# Skip commented entries
 		[ "$1" = "#" ] && continue
-		modprobe -a "$1"
+		tell_kmsg "loading $1"
+		modprobe -a "$1" > /dev/kmsg
 	done
 
 	cd -
@@ -646,7 +647,9 @@ mountroot() {
 	fi
 
 	if [ -z "$path" ]; then
-		halium_panic "Couldn't find data partition."
+		tell_kmsg "Couldn't find data partition."
+		echo 1 > /proc/sys/kernel/sysrq
+		echo c > /proc/sysrq-trigger
 	fi
 
 	# Check if this is a recovery image. If so, check the cmdline for
