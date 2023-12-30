@@ -522,14 +522,25 @@ load_kernel_modules() {
 	cd /lib/modules
 	ln -sf /lib/modules "/lib/modules/$(uname -r)"
 
-	tell_kmsg "Loading kernel modules from $(pwd)"
-
-	cat modules.load | while read line; do
-		set -- $line
-		# Skip commented entries
-		[ "$1" = "#" ] && continue
-		modprobe -a "$1"
+	files="/override/modules.load.recovery /override/modules.load /lib/modules/modules.load.recovery /lib/modules/modules.load"
+	for file in $files; do
+		if [ -f "$file" ]; then
+			module_list="$file"
+			break
+		fi
 	done
+
+	if [ -n "$module_list" ]; then
+	        tell_kmsg "Loading kernel modules from $module_list"
+
+		cat $module_list | while read line; do
+			set -- $line
+			# Skip commented entries
+			[ "$1" = "#" ] && continue
+			tell_kmsg "Loading module $1"
+			modprobe -a "$1"
+		done
+	fi
 
 	cd -
 }
