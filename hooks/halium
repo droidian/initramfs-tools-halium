@@ -26,7 +26,12 @@ copy_exec /bin/mount /bin
 copy_exec /sbin/dumpe2fs /sbin
 copy_exec /lib/$DEB_HOST_MULTIARCH/libz.so.1
 copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libcrypto.so
-copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libdl.so.2
+if [ -e /usr/lib/$DEB_HOST_MULTIARCH/libdl.so.2 ]; then
+	# Bookworm+
+	copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libdl.so.2
+else
+	copy_exec /usr/lib/$DEB_HOST_MULTIARCH/libdl.so
+fi
 
 # Droidian: copy touchscreen rules
 mkdir -p "${DESTDIR}/etc/udev/rules.d"

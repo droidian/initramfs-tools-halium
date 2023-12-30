@@ -3,7 +3,7 @@ Section: utils
 Priority: optional
 Maintainer: Eugenio Paolantonio (g7) <me@medesimo.eu>
 XSBC-Original-Maintainer: Halium developers <admin@halium.org>
-Build-Depends: debhelper (>= 9),
+Build-Depends: debhelper (>= 13),
                lsb-release,
                fakeroot,
                dpkg-dev,
@@ -24,25 +24,21 @@ Build-Depends: debhelper (>= 9),
                xkb-data,
                libc6-dev,
                libssl-dev,
+               debootstrap,
+               lz4,
 Standards-Version: 4.1.3
 
 Package: initramfs-tools-halium
 Architecture: all
 Depends: initramfs-tools,
-         abootimg,
-         udev (>= 175-0ubuntu29),
          coreutils,
          busybox-static,
          e2fsprogs,
          ${misc:Depends}
-Description: tools for mounting an Ubuntu Touch rootfs
- This package contains the scripts to boot an Ubuntu Touch device.
+Description: tools for mounting a Droidian rootfs
+ This package contains the scripts to boot a Droidian device.
  It also ships a default fstab that uses the android device paths based
- on partition label. By default it will mount the android userdata
- partition, then do a bind mount of the ubuntu subdir in there to become
- the root filesystem.
- .
- On failure the script will fire up an adb debugging shell
+ on partition label
 
 Package: linux-initramfs-halium-generic
 Architecture: any

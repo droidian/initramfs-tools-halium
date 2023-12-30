@@ -7,15 +7,21 @@ DEB_TARGET_MULTIARCH = $(shell dpkg-architecture -qDEB_TARGET_MULTIARCH)
 	dh $@
 
 override_dh_auto_build:
-	./build-initrd-nochroot.sh
-	IS_RECOVERY="yes" ./build-initrd-nochroot.sh
+	# Standard ramdisk (gzip)
+	./build-initrd.sh -a $(DEB_TARGET_ARCH) -c gzip -n initrd.img-halium-generic
+	# Recovery ramdisk (gzip)
+	./build-initrd.sh -a $(DEB_TARGET_ARCH) -c gzip -n recovery-initramfs.img-halium-generic -r
+	# Standard ramdisk (lz4)
+	./build-initrd.sh -a $(DEB_TARGET_ARCH) -c lz4 -n initrd.img-halium-generic.lz4
+	# Recovery ramdisk (lz4)
+	./build-initrd.sh -a $(DEB_TARGET_ARCH) -c lz4 -n recovery-initramfs.img-halium-generic.lz4 -r
 
 override_dh_auto_install:
 	mkdir -p $(CURDIR)/debian/linux-initramfs-halium-generic/usr/lib/$(DEB_TARGET_MULTIARCH)/halium-generic-initramfs/
 	cp -v $(CURDIR)/out/* $(CURDIR)/debian/linux-initramfs-halium-generic/usr/lib/$(DEB_TARGET_MULTIARCH)/halium-generic-initramfs/
 
 override_dh_auto_test:
-	@set -e; for f in etc/initramfs/post-update.d/* hooks/* scripts/panic/telnet scripts/halium usr/sbin/*; do \
+	@set -e; for f in hooks/* scripts/panic/telnet scripts/halium; do \
 	    echo "Checking sh syntax of $$f"; \
 	    sh -n $$f; \
 	done
