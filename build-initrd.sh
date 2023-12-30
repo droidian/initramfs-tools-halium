@@ -161,6 +161,16 @@ mv ${DESTDIR}/usr/lib/* ${DESTDIR}/lib
 # Move the linker in a known place
 mv -v ${DESTDIR}/lib/*/ld-linux-*.so.* ${DESTDIR}/lib/droidian-minienv-linker.so
 
+if [ "${COMPRESS}" = "lz4" ] && [ ! -e "${ROOT}/usr/bin/lz4-wrapper" ]; then
+	# This is unfortunately needed as mkinitramfs checks for the command
+	# existence, so we can't overload the compress variable
+	cat > ${ROOT}/usr/bin/lz4-wrapper <<EOF
+#!/bin/sh -x
+exec lz4 -9 -l $@
+EOF
+	chmod +x ${ROOT}/usr/bin/lz4-wrapper
+	COMPRESS="lz4-wrapper"
+fi
 do_chroot $ROOT "env compress=${COMPRESS} update-initramfs -tc -khalium-generic -v"
 
 rm -rf ${DESTDIR}
