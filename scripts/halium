@@ -47,6 +47,16 @@ halium_hook() {
 	fi
 }
 
+droidian_minienv() {
+	# Executes the command preferring the minienv libraries
+	executable="$(which ${1})"
+	shift
+	/minienv/lib/droidian-minienv-linker.so \
+		--inhibit-cache \
+		--library-path '/minienv/usr/${LIB}:/minienv/${LIB}:/usr/${LIB}:/${LIB}' \
+		${executable} ${@}
+}
+
 identify_boot_mode() {
 	# Our current list of supported boot modes:
 	## BOOT_MODE = halium and android
@@ -533,13 +543,19 @@ unlock_encrypted_partition() {
 
 	# FIXME: quit plymouth, it would be better to hide/reshow but we
 	# can't when using the drm backend
-	[ -e "/usr/bin/plymouth" ] && plymouth quit || true
+	[ -e "/usr/bin/plymouth" ] && droidian_minienv plymouth quit || true
 
 	halium_hook setup_touchscreen
 
 	tries="0"
 	while [ "${1}" ]; do
-		CRYPTTAB_TRIED="${tries}" unl0kr | droidian-encryption-helper --device "${part}" --header "${header}" --name "${name}" --rootmnt "${rootmnt}" --strip-newlines
+		CRYPTTAB_TRIED="${tries}" droidian_minienv unl0kr | \
+			droidian_minienv droidian-encryption-helper \
+				--device "${part}" \
+				--header "${header}" \
+				--name "${name}" \
+				--rootmnt "${rootmnt}" \
+				--strip-newlines
 		err="${?}"
 		case "${err}" in
 			2)

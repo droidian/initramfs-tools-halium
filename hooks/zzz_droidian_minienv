@@ -1,0 +1,35 @@
+#!/bin/bash -e
+
+MINKVER="2.6.24"
+PREREQ=""
+DEB_HOST_MULTIARCH=$(dpkg-architecture -qDEB_HOST_MULTIARCH)
+
+# Output pre-requisites
+prereqs() {
+	echo "$PREREQ"
+}
+
+case "$1" in
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+# Droidian: copy Droidian stuff compiled against a more recent distribution
+if [ -e /orig/tmp/droidian-minienv ]; then
+	mkdir -p "${DESTDIR}/minienv"
+	for file in $(find /orig/tmp/droidian-minienv \( -type l -o -type f \) -printf '%P\n'); do
+		if [[ ${file} == *.so* ]] || [ -e "${DESTDIR}/${file}" ] || [ -h "${DESTDIR}/${file}" ]; then
+			# File exists already or a library, overlay on minienv
+			target="${DESTDIR}/minienv/${file}"
+		else
+			target="${DESTDIR}/${file}"
+		fi
+
+		mkdir -p "$(dirname ${target})"
+		cp -av /orig/tmp/droidian-minienv/${file} ${target}
+	done
+
+	find "${DESTDIR}"
+fi

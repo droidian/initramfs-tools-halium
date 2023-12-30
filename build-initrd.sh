@@ -2,16 +2,21 @@
 
 set -e
 
+MINIENV_HOOKS="cryptroot plymouth unl0kr droidian-encryption-service"
+
 export FLASH_KERNEL_SKIP=1
 export DEBIAN_FRONTEND=noninteractive
-DEFAULTMIRROR="https://deb.debian.org/debian"
+DEFAULTMIRROR="https://archive.debian.org/debian"
 APT_COMMAND="apt -y"
 
 usage() {
 	echo "Usage:
 
--a|--arch	Architecture to create initrd for. Default armhf
--m|--mirror	Custom mirror URL to use. Must serve your arch.
+-a|--arch     Architecture to create initrd for. Default armhf
+-m|--mirror   Custom mirror URL to use. Must serve your arch.
+-r|--recovery Build a recovery image
+-c|--compress Compression to use
+-n|--name     Target file name
 "
 }
 
@@ -25,11 +30,21 @@ while [ $# -gt 0 ]; do
 		usage
 		exit 0
 		;;
+	-r | --recovery)
+		echob "Recovery image request"
+		IS_RECOVERY="yes"
+		;;
 	-a | --arch)
 		[ -n "$2" ] && ARCH=$2 shift || usage
 		;;
 	-m | --mirror)
 		[ -n "$2" ] && MIRROR=$2 shift || usage
+		;;
+	-c | --compress)
+		[ -n "$2" ] && COMPRESS=$2 shift || usage
+		;;
+	-n | --name)
+		[ -n "$2" ] && FILENAME=$2 shift || usage
 		;;
 	esac
 	shift
@@ -41,15 +56,19 @@ done
 [ -z $RELEASE ] && RELEASE="stretch"
 [ -z $ROOT ] && ROOT=./build/$ARCH
 [ -z $OUT ] && OUT=./out
+[ -z $IS_RECOVERY ] && IS_RECOVERY="no"
+[ -z $COMPRESS ] && COMPRESS="gzip"
+[ -z $FILENAME ] && FILENAME="initrd.img-halium-generic"
 
 # list all packages needed for halium's initrd here
-[ -z $INCHROOTPKGS ] && INCHROOTPKGS="initramfs-tools dctrl-tools e2fsprogs libc6-dev zlib1g-dev libssl-dev busybox-static"
+[ -z $INCHROOTPKGS ] && INCHROOTPKGS="initramfs-tools dctrl-tools e2fsprogs libc6-dev zlib1g-dev libssl-dev busybox-static lvm2 cryptsetup xkb-data dropbear pigz liblz4-tool"
 
-BOOTSTRAP_BIN="qemu-debootstrap --arch $ARCH --variant=minbase"
+BOOTSTRAP_BIN="debootstrap --arch $ARCH --variant=minbase"
 
 umount_chroot() {
 	chroot $ROOT umount /sys >/dev/null 2>&1 || true
 	chroot $ROOT umount /proc >/dev/null 2>&1 || true
+	chroot $ROOT umount /orig >/dev/null 2>&1 || true
 	echo
 }
 
@@ -58,6 +77,7 @@ do_chroot() {
 	ROOT="$1"
 	CMD="$2"
 	echob "Executing \"$2\" in chroot"
+	mount -o bind / $ROOT/orig
 	chroot $ROOT mount -t proc proc /proc
 	chroot $ROOT mount -t sysfs sys /sys
 	chroot $ROOT $CMD
@@ -73,6 +93,8 @@ if [ ! -e $ROOT/.min-done ]; then
 	echob "Creating chroot with arch $ARCH in $ROOT"
 	mkdir build || true
 	$BOOTSTRAP_BIN $RELEASE $ROOT $MIRROR || cat $ROOT/debootstrap/debootstrap.log
+
+	mkdir -p $ROOT/orig
 
 	#sed -i 's/main$/main universe/' $ROOT/etc/apt/sources.list
 	sed -i 's,'"$DEFAULTMIRROR"','"$MIRROR"',' $ROOT/etc/apt/sources.list
@@ -102,18 +124,49 @@ do_chroot $ROOT "$APT_COMMAND dist-upgrade"
 do_chroot $ROOT "$APT_COMMAND install $INCHROOTPKGS --no-install-recommends"
 DEB_HOST_MULTIARCH=$(chroot $ROOT dpkg-architecture -q DEB_HOST_MULTIARCH)
 
+# Droidian: copy touchscreen, keyboard data
+cp /etc/udev/rules.d/90-touchscreen.rules "${ROOT}/etc/udev/rules.d"
+cp -R /usr/share/X11/xkb/* "${ROOT}/usr/share/X11/xkb"
+mkdir -p "${ROOT}/usr/lib/udev/hwdb.d"
+cp -R /usr/lib/udev/hwdb.d/* "${ROOT}/usr/lib/udev/hwdb.d"
+
 cp -a conf/halium ${ROOT}/usr/share/initramfs-tools/conf.d
 cp -a scripts/* ${ROOT}/usr/share/initramfs-tools/scripts
 cp -a hooks/* ${ROOT}/usr/share/initramfs-tools/hooks
+if [ "${IS_RECOVERY}" = "yes" ]; then
+	cp -av hooks-recovery/* ${tmpdir}/etc/initramfs-tools/hooks
+fi
 
 VER="$ARCH"
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/lib/$DEB_HOST_MULTIARCH"
 
-do_chroot $ROOT "update-initramfs -tc -ktouch-$VER -v"
+# Create minienv
+export DESTDIR="/tmp/droidian-minienv"
+export verbose="y"
+
+# Create initial skeleton, hook might get confused
+mkdir -p ${DESTDIR}/etc ${DESTDIR}/usr/lib ${DESTDIR}/lib ${DESTDIR}/mnt ${DESTDIR}/tmp
+
+# Droidian specific
+/usr/sbin/plymouth-set-default-theme -R droidian
+
+for hook in ${MINIENV_HOOKS}; do
+	bash -x /usr/share/initramfs-tools/hooks/${hook}
+done
+
+# stretch does not have /usr merged, so simply move stuff to /lib
+# instead. This allows to properly overlay in /minienv
+mv ${DESTDIR}/usr/lib/* ${DESTDIR}/lib
+
+# Move the linker in a known place
+mv -v ${DESTDIR}/lib/*/ld-linux-*.so.* ${DESTDIR}/lib/droidian-minienv-linker.so
+
+do_chroot $ROOT "env compress=${COMPRESS} update-initramfs -tc -khalium-generic -v"
+
+rm -rf ${DESTDIR}
 
 mkdir "$OUT" >/dev/null 2>&1 || true
-FILENAME=initrd.img-touch-$VER
-cp "$ROOT/boot/${FILENAME}" "$OUT"
+cp "$ROOT/boot/initrd.img-halium-generic" "$OUT/${FILENAME}"
 cd "$OUT"
 sha256sum "${FILENAME}" > "${FILENAME}.sha256"
 date -R > "${FILENAME}.timestamp"
