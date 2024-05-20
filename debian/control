@@ -25,7 +25,6 @@ Build-Depends: debhelper (>= 13),
                debootstrap,
                lz4,
                parse-android-dynparts,
-               parse-modules-load
 Standards-Version: 4.1.3
 
 Package: initramfs-tools-halium
