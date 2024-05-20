@@ -69,9 +69,6 @@ if [ "${IS_RECOVERY}" == "yes" ]; then
 	cp -av hooks-recovery/* ${tmpdir}/etc/initramfs-tools/hooks
 fi
 
-# Set plymouth default theme
-plymouth-set-default-theme -R droidian
-
 # Finally build
 mkdir -p ${OUT}
 

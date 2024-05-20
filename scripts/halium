@@ -552,10 +552,6 @@ unlock_encrypted_partition() {
 	name="${3}"
 	is_recovery="${4}"
 
-	# FIXME: quit plymouth, it would be better to hide/reshow but we
-	# can't when using the drm backend
-	[ -e "/usr/bin/plymouth" ] && droidian_minienv plymouth quit || true
-
 	halium_hook setup_touchscreen
 
 	tries="0"

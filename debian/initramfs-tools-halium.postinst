@@ -5,7 +5,7 @@ set -e
 apply_diversions() {
 	DIR=/usr/share/initramfs-tools
 	SUBDIRS="hooks scripts/local-premount scripts/init-top scripts/init-bottom scripts/panic"
-	FILES="compcache fixrtc dmsetup plymouth console_setup kbd thermal"
+	FILES="compcache fixrtc dmsetup console_setup kbd thermal"
 
 	for file in $FILES; do
 		for subdir in $SUBDIRS; do

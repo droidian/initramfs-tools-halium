@@ -2,7 +2,7 @@
 
 set -e
 
-MINIENV_HOOKS="cryptroot plymouth unl0kr droidian-encryption-service parse-android-dynparts parse-modules-load"
+MINIENV_HOOKS="cryptroot unl0kr droidian-encryption-service parse-android-dynparts parse-modules-load"
 
 export FLASH_KERNEL_SKIP=1
 export DEBIAN_FRONTEND=noninteractive
@@ -146,9 +146,6 @@ export verbose="y"
 
 # Create initial skeleton, hook might get confused
 mkdir -p ${DESTDIR}/etc ${DESTDIR}/usr/lib ${DESTDIR}/lib ${DESTDIR}/mnt ${DESTDIR}/tmp
-
-# Droidian specific
-/usr/sbin/plymouth-set-default-theme -R droidian
 
 for hook in ${MINIENV_HOOKS}; do
 	bash -x /usr/share/initramfs-tools/hooks/${hook}
