@@ -518,31 +518,43 @@ mount_kernel_modules() {
 }
 
 load_kernel_modules() {
-	mkdir -p /lib/modules
-	cd /lib/modules
-	ln -sf /lib/modules "/lib/modules/$(uname -r)"
+	if [ -e /override/modules.load ]; then
+		mkdir -p /lib/modules
+		cd /lib/modules
+		ln -sf /lib/modules "/lib/modules/$(uname -r)"
 
-	files="/override/modules.load.recovery /override/modules.load /lib/modules/modules.load.recovery /lib/modules/modules.load"
-	for file in $files; do
-		if [ -f "$file" ]; then
-			module_list="$file"
-			break
-		fi
-	done
-
-	if [ -n "$module_list" ]; then
-	        tell_kmsg "Loading kernel modules from $module_list"
-
-		cat $module_list | while read line; do
-			set -- $line
-			# Skip commented entries
-			[ "$1" = "#" ] && continue
-			tell_kmsg "Loading module $1"
-			modprobe -a "$1"
+		files="/override/modules.load"
+		for file in $files; do
+			if [ -f "$file" ]; then
+				module_list="$file"
+				break
+			fi
 		done
-	fi
 
-	cd -
+		if [ -n "$module_list" ]; then
+		    tell_kmsg "Loading kernel modules from $module_list"
+		    cat $module_list | while read line; do
+				set -- $line
+				# Skip commented entries
+				[ "$1" = "#" ] && continue
+				tell_kmsg "Loading module $1"
+				modprobe -a "$1"
+			done
+		fi
+	else
+		mkdir -p "/lib/modules/$(uname -r)"
+		cp /lib/modules/*.ko "/lib/modules/$(uname -r)"
+		depmod -a
+		modlist="/lib/modules/$(uname -r)"
+		let count=0
+		for m in "$modlist"/*.ko; do
+			tell_kmsg "Loading module $(basename $m)"
+			modprobe -a $(basename $m)
+			let count=count+1
+		done  
+		tell_kmsg "Total modules: $count"
+	fi
+	cd -  
 }
 
 
