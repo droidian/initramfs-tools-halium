@@ -2,7 +2,7 @@
 
 set -e
 
-MINIENV_HOOKS="cryptroot plymouth unl0kr droidian-encryption-service"
+MINIENV_HOOKS="cryptroot plymouth unl0kr droidian-encryption-service parse-android-dynparts"
 
 export FLASH_KERNEL_SKIP=1
 export DEBIAN_FRONTEND=noninteractive
