@@ -612,6 +612,51 @@ signal_root_move_done() {
 	done
 }
 
+mount_vendor_partitions() {
+	mkdir /vendor
+	mkdir /vendor_dlkm
+	if [ -e "/dev/disk/by-partlabel/super" ]; then
+		tell_kmsg "mapping super partition"
+		losetup -r /dev/loop0 /dev/disk/by-partlabel/super
+		/minienv/lib/droidian-minienv-linker.so \
+			--inhibit-cache \
+			--library-path '/minienv/usr/${LIB}:/minienv/${LIB}:/usr/${LIB}:/${LIB}' \
+			/usr/sbin/dmsetup create --concise "$(droidian_minienv /usr/sbin/parse-android-dynparts /dev/loop0)"
+	fi
+
+	vendor_images="/tmpmnt/vendor.img /dev/disk/by-partlabel/vendor${1} /dev/disk/by-partlabel/vendor_a /dev/disk/by-partlabel/vendor_b /dev/mapper/dynpart-vendor /dev/mapper/dynpart-vendor${1} /dev/mapper/dynpart-vendor_a /dev/mapper/dynpart-vendor_b"
+	for image in $vendor_images; do
+	    if [ -e $image ]; then
+	        tell_kmsg "mounting vendor from $image"
+	        mount $image /vendor -o ro
+
+	        if [ -e "/vendor/build.prop" ]; then
+	            tell_kmsg "found valid vendor partition: $image"
+	            break
+	        else
+	            tell_kmsg "$image is not a valid vendor partition"
+	            umount /vendor
+	        fi
+	    fi
+	done
+
+	vendor_dlkm_images="/dev/mapper/dynpart-vendor_dlkm /dev/mapper/dynpart-vendor_dlkm${1} /dev/mapper/dynpart-vendor_dlkm_a /dev/mapper/dynpart-vendor_dlkm_b"
+	for image in $vendor_dlkm_images; do
+	    if [ -e $image ]; then
+	        tell_kmsg "mounting vendor_dlkm from $image"
+	        mount $image /vendor_dlkm -o ro
+
+	        if [ -e "/vendor_dlkm/etc/build.prop" ]; then
+	            tell_kmsg "found valid vendor_dlkm partition: $image"
+	            break
+	        else
+	            tell_kmsg "$image is not a valid vendor_dlkm partition"
+	            umount /vendor_dlkm
+	        fi
+	    fi
+	done
+}
+
 mountroot() {
 	# list of possible userdata partition names
 	partlist="userdata UDA DATAFS USERDATA"
@@ -648,8 +693,15 @@ mountroot() {
 		[ -n "$path" ] && break
 	done
 
-	# On systems with A/B partition layout, current slot is provided via cmdline parameter.
-	ab_slot_suffix=$(grep -o 'androidboot\.slot_suffix=..' /proc/cmdline |  cut -d "=" -f2)
+	# On systems with A/B partition layout, current slot is provided via cmdline parameter or bootconfig.
+	if [ -e /proc/bootconfig ]; then
+	    ab_slot_suffix=$(grep -o 'androidboot\.slot_suffix = ".."' /proc/bootconfig | cut -d '"' -f2)
+	fi
+
+	if [ -z "$ab_slot_suffix" ]; then
+	    ab_slot_suffix=$(grep -o 'androidboot\.slot_suffix=..' /proc/cmdline |  cut -d "=" -f2)
+	fi
+
 	if [ -z "$path" ] && [ ! -z "$ab_slot_suffix" ] ; then
 		tell_kmsg "Searching for A/B data partition on slot $ab_slot_suffix."
 
@@ -738,6 +790,8 @@ mountroot() {
 			sleep 2
 		done
 
+		mount_vendor_partitions "$ab_slot_suffix"
+		
 		# If _syspart is empty, LVM discovery failed. Let's continue
 		# normally
 		if [ -z "${_syspart}" ]; then
@@ -771,6 +825,8 @@ mountroot() {
 		# FIXME: data=journal used on ext4 as a workaround for bug 1387214
 		[ `blkid $path -o value -s TYPE` = "ext4" ] && OPTIONS="data=journal,"
 		mount -o discard,$OPTIONS $path /tmpmnt
+
+		mount_vendor_partitions "$ab_slot_suffix"
 
 		# Set $_syspart if it is specified as systempart= on the command line
 		# If the .ignore_systempart flag is in the data partition, ignore
@@ -937,6 +993,18 @@ mountroot() {
 		# system is a special case
 		tell_kmsg "moving Android system to /android/system"
 		mount --move /android-system ${rootmnt}/android/system
+
+		if [ -e "/vendor/build.prop" ]; then
+			tell_kmsg "moving Android vendor to /android/vendor"
+			mkdir -p ${rootmnt}/android/vendor
+			mount --move /vendor ${rootmnt}/android/vendor
+		fi
+
+		if [ -e "/vendor_dlkm/etc/build.prop" ]; then
+			tell_kmsg "moving Android vendor_dlkm to /android/vendor_dlkm"
+			mkdir -p ${rootmnt}/android/vendor_dlkm
+			mount --move /vendor_dlkm ${rootmnt}/android/vendor_dlkm
+		fi
 
 		# halium overlay available in the Android system image (hardware specific configs)
 		if [ -e ${rootmnt}/android/system/halium ]; then
