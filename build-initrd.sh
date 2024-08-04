@@ -150,6 +150,7 @@ mkdir -p ${DESTDIR}/etc ${DESTDIR}/usr/lib ${DESTDIR}/lib ${DESTDIR}/mnt ${DESTD
 # Droidian specific
 /usr/sbin/plymouth-set-default-theme -R droidian
 
+export __MODULES_TO_ADD="$(mktemp "${TMPDIR:-/var/tmp}/modules_XXXXXX")"
 for hook in ${MINIENV_HOOKS}; do
 	bash -x /usr/share/initramfs-tools/hooks/${hook}
 done
