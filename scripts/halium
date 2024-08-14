@@ -907,8 +907,9 @@ mountroot() {
 
 	# Determine whether we should boot to rootfs or Android
 	if [ "${HALIUM_RECOVERY}" == "yes" ]; then
+		halium_hook recovery_ready
 		halium_panic "Recovery mode ready"
-        fi
+	fi
 
 	if [ "$BOOT_MODE" = "recovery" ]; then
 		tell_kmsg "Recovery boot mode for system-as-root devices"
