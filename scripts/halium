@@ -744,6 +744,8 @@ mountroot() {
 		HALIUM_RECOVERY="no"
 	fi
 
+	mount_vendor_partitions "$ab_slot_suffix"
+
 	# Check if we should prefer LVM mounts. If that's the case, try
 	# mounting the droidian-rootfs LV first, then fallback to the standard
 	# halium way (where we assume that userdata is a mountable partition)
@@ -789,8 +791,6 @@ mountroot() {
 			[ -n "${_syspart}" ] && break
 			sleep 2
 		done
-
-		mount_vendor_partitions "$ab_slot_suffix"
 		
 		# If _syspart is empty, LVM discovery failed. Let's continue
 		# normally
@@ -825,8 +825,6 @@ mountroot() {
 		# FIXME: data=journal used on ext4 as a workaround for bug 1387214
 		[ `blkid $path -o value -s TYPE` = "ext4" ] && OPTIONS="data=journal,"
 		mount -o discard,$OPTIONS $path /tmpmnt
-
-		mount_vendor_partitions "$ab_slot_suffix"
 
 		# Set $_syspart if it is specified as systempart= on the command line
 		# If the .ignore_systempart flag is in the data partition, ignore
