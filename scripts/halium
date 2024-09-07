@@ -749,11 +749,12 @@ mountroot() {
 	# Check if we should prefer LVM mounts. If that's the case, try
 	# mounting the droidian-rootfs LV first, then fallback to the standard
 	# halium way (where we assume that userdata is a mountable partition)
+	use_lvm="yes"
 	if grep -q droidian.lvm /proc/cmdline; then
 		for x in $(cat /proc/cmdline); do
 			case ${x} in
-			droidian.lvm.prefer)
-				use_lvm="yes"
+			droidian.lvm.disable)
+				use_lvm="no"
 				;;
 			droidian.lvm.vg=*)
 				search_vg=${x#*=}
