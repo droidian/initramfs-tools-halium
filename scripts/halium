@@ -778,8 +778,8 @@ mountroot() {
 	fi
 
 	if [ "${use_lvm}" == "yes" ]; then
-		lvm vgscan
-		for try in 1 2 3; do
+		for try in 1 2 3 4 5; do
+			lvm vgscan --mknodes
 			for vg in ${search_vg}; do
 				if lvm vgchange -ay ${vg} && [ -e "/dev/${vg}/${root_lv}" ]; then
 					tell_kmsg "Found LVM VG ${vg}"
