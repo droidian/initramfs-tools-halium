@@ -522,7 +522,7 @@ load_kernel_modules() {
 	cd /lib/modules
 	ln -sf /lib/modules "/lib/modules/$(uname -r)"
 
-	files="/override/modules.load.recovery /override/modules.load /lib/modules/modules.load.recovery /lib/modules/modules.load"
+	files="/override/modules.load /lib/modules/modules.load /override/modules.load.recovery /lib/modules/modules.load.recovery"
 	for file in $files; do
 		if [ -f "$file" ]; then
 			module_list="$file"
