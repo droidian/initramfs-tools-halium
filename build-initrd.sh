@@ -152,7 +152,11 @@ mkdir -p ${DESTDIR}/etc ${DESTDIR}/usr/lib ${DESTDIR}/lib ${DESTDIR}/mnt ${DESTD
 
 export __MODULES_TO_ADD="$(mktemp "${TMPDIR:-/var/tmp}/modules_XXXXXX")"
 for hook in ${MINIENV_HOOKS}; do
-	bash -x /usr/share/initramfs-tools/hooks/${hook}
+	if [ "${hook}" = "btrfs" ]; then
+		sed -e 's| /lib/udev| /usr/lib/udev|g' /usr/share/initramfs-tools/hooks/btrfs | bash -x
+	else
+		bash -x /usr/share/initramfs-tools/hooks/${hook}
+	fi
 done
 
 # stretch does not have /usr merged, so simply move stuff to /lib
