@@ -164,6 +164,10 @@ if grep -q halium.recovery /proc/cmdline; then
 		skip_initramfs|androidboot.force_normal_boot=1)
 			HALIUM_RECOVERY="no"
 			;;
+		bootconfig) # Android 12+ (GKI) recovery-as-boot
+			if grep -q 'androidboot.force_normal_boot = "1"' /proc/bootconfig; then
+				HALIUM_RECOVERY="no"
+			fi
 		esac
 	done
 fi
