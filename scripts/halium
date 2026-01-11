@@ -954,7 +954,7 @@ mountroot() {
 		ln -s ../init ${rootmnt}/sbin/init
 		ln -s ../init ${rootmnt}/sbin/recovery
 		tell_kmsg "booting android..."
-	elif [ -e $imagefile ] || [ -n "$_syspart" ]; then
+	elif [ -e "$imagefile" ] || [ -n "$_syspart" ]; then
 		# Regular image boot
 		tell_kmsg "Normal boot"
 
