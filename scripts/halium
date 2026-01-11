@@ -24,13 +24,6 @@ tell_kmsg() {
 	echo "initrd: $1" >/dev/kmsg || true
 }
 
-halium_panic() {
-	# Puts panic reason into kmsg and then starts the panic handlers
-	REASON="$1"
-	tell_kmsg "PANIC for reason: $REASON"
-	panic $REASON
-}
-
 halium_hook() {
 	# Allows calling an user-defined hook. Hooks must go in /scripts/halium-hooks.
 	# Call this function like this:
@@ -45,6 +38,14 @@ halium_hook() {
 	if [ "${WITH_HOOKS}" == "yes" ] && [ "$(type -t ${func})" == "${func}" ]; then
 		${func} ${@}
 	fi
+}
+
+halium_panic() {
+	# Puts panic reason into kmsg and then starts the panic handlers
+	REASON="$1"
+	tell_kmsg "PANIC for reason: $REASON"
+	halium_hook panic
+	panic $REASON
 }
 
 droidian_minienv() {
