@@ -114,7 +114,10 @@ dropbear_start() {
 	mkdir -p /etc/dropbear
 
 	# Allow passwordless authentication
-	sed -i 's|:x:|::|' /etc/passwd
+	passwd -d root
+
+	# Silence a few lines of lastlog spam on login
+	mkdir -p /var/log && touch /var/log/lastlog
 
 	# Finally start dropbear
 	dropbear -R -B -E
