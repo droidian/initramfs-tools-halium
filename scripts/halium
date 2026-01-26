@@ -350,9 +350,8 @@ resize_lvm_if_needed() {
 	# Note: this is meant to be done as an online resize. Thus, the stamp
 	# file is checked on the mounted rootfs partition.
 
-	pv=${1}
-	vg=${2}
-	lv=${3}
+	vg=${1}
+	lv=${2}
 
 	if [ ! -e "/halium-system/var/lib/halium/requires-lvm-resize" ]; then
 		# Bye bye
@@ -360,6 +359,7 @@ resize_lvm_if_needed() {
 	fi
 
 	part="/dev/${vg}/${lv}"
+	pv="$(lvm lvs --noheadings -o name,devices "$vg" | awk "/$lv/ {print \$2}" | head -n1 | cut -d'(' -f1)"
 
 	# Resize the underlying Physical Volume
 	if ! lvm pvresize ${pv}; then
@@ -859,7 +859,7 @@ mountroot() {
 	if [ -n "$_syspart" ]; then
 		mount -o rw $_syspart /halium-system
 
-		[ "${use_lvm}" == "yes" ] && resize_lvm_if_needed "${path}" "${vg}" "${root_lv}"
+		[ "${use_lvm}" == "yes" ] && resize_lvm_if_needed "${vg}" "${root_lv}"
 	elif [ -f "$imagefile" ]; then
 		# Rootfs is an image file
 		mount -o loop,rw $imagefile /halium-system
