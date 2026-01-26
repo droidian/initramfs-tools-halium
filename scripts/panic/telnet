@@ -114,7 +114,10 @@ dropbear_start() {
 	mkdir -p /etc/dropbear
 
 	# Allow passwordless authentication
-	sed -i 's|:x:|::|' /etc/passwd
+	passwd -d root
+
+	# Silence a few lines of lastlog spam on login
+	mkdir -p /var/log && touch /var/log/lastlog
 
 	# Finally start dropbear
 	dropbear -R -B -E
@@ -164,6 +167,10 @@ if grep -q halium.recovery /proc/cmdline; then
 		skip_initramfs|androidboot.force_normal_boot=1)
 			HALIUM_RECOVERY="no"
 			;;
+		bootconfig) # Android 12+ (GKI) recovery-as-boot
+			if grep -q 'androidboot.force_normal_boot = "1"' /proc/bootconfig; then
+				HALIUM_RECOVERY="no"
+			fi
 		esac
 	done
 fi
