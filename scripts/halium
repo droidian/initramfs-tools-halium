@@ -24,13 +24,6 @@ tell_kmsg() {
 	echo "initrd: $1" >/dev/kmsg || true
 }
 
-halium_panic() {
-	# Puts panic reason into kmsg and then starts the panic handlers
-	REASON="$1"
-	tell_kmsg "PANIC for reason: $REASON"
-	panic $REASON
-}
-
 halium_hook() {
 	# Allows calling an user-defined hook. Hooks must go in /scripts/halium-hooks.
 	# Call this function like this:
@@ -45,6 +38,14 @@ halium_hook() {
 	if [ "${WITH_HOOKS}" == "yes" ] && [ "$(type -t ${func})" == "${func}" ]; then
 		${func} ${@}
 	fi
+}
+
+halium_panic() {
+	# Puts panic reason into kmsg and then starts the panic handlers
+	REASON="$1"
+	tell_kmsg "PANIC for reason: $REASON"
+	halium_hook panic
+	panic $REASON
 }
 
 droidian_minienv() {
@@ -83,13 +84,14 @@ identify_boot_mode() {
 			if grep -q 'androidboot.force_normal_boot = "1"' /proc/bootconfig; then
 				normal_boot="y"
 			fi
+			android_bootmode=$(awk -F'"' '/androidboot.bootreason/ {print $2}' /proc/bootconfig)
 			;;
 		esac
 	done
 
-	if echo "$android_bootmode" | grep charger; then
-		BOOT_MODE="android"
-	fi
+	case "${android_bootmode}" in
+	charger|usb) BOOT_MODE="android" ;;
+	esac
 
 	## Some devices may be using 'bootreason', others 'boot_reason'
 	## XXX: Find a better way to handle device specifics here
@@ -110,17 +112,11 @@ identify_boot_mode() {
 		BOOT_MODE="recovery"
 	fi
 
-	# On Android 8+ devices the 'android' boot mode is broken and should be avoided.
-	# This behavior can be overridden with the cmdline flag 'halium_no_avoid_android_mode'
-	# List of API levels and referred Android versions: https://source.android.com/setup/start/build-numbers
-	if ! grep -wq halium_no_avoid_android_mode /proc/cmdline; then
-		api_level=$(sed -n 's/^ro.build.version.sdk=//p' /android-system/build.prop) # e.g. 26 for Android 8.0
-		[ -z "$api_level" ] && api_level=0
-		tell_kmsg "Android system image API level is $api_level"
-		if [ "$BOOT_MODE" = "android" ] && [ $api_level -ge 26 ]; then
-			tell_kmsg "Android 8+ device detected! Rebooting to reset non-standard boot mode..."
-			reboot -f
-		fi
+	# On Android 8+ devices (only which Droidian supports realistically) the
+	# 'android' boot mode is broken and should be avoided.
+	if [ "$BOOT_MODE" = "android" ] && [ "$HALIUM_RECOVERY" != "yes" ]; then
+		tell_kmsg "Rebooting to reset non-standard boot mode..."
+		reboot -f
 	fi
 
 	tell_kmsg "boot mode: $BOOT_MODE"
@@ -738,11 +734,17 @@ mountroot() {
 			skip_initramfs|androidboot.force_normal_boot=1)
 				HALIUM_RECOVERY="no"
 				;;
+			bootconfig) # Android 12+ (GKI) recovery-as-boot
+				if grep -q 'androidboot.force_normal_boot = "1"' /proc/bootconfig; then
+					HALIUM_RECOVERY="no"
+				fi
 			esac
 		done
 	else
 		HALIUM_RECOVERY="no"
 	fi
+
+	identify_boot_mode
 
 	mount_vendor_partitions "$ab_slot_suffix"
 
@@ -902,8 +904,6 @@ mountroot() {
 	[ $ANDROID_IMAGE_MODE = "rootfs" ] && mount -o bind $MOUNT_LOCATION/system /android-system
 	[ $ANDROID_IMAGE_MODE = "system" ] && extract_android_ramdisk
 
-	identify_boot_mode
-
 	# Determine whether we should boot to rootfs or Android
 	if [ "${HALIUM_RECOVERY}" == "yes" ]; then
 		halium_hook recovery_ready
@@ -954,7 +954,7 @@ mountroot() {
 		ln -s ../init ${rootmnt}/sbin/init
 		ln -s ../init ${rootmnt}/sbin/recovery
 		tell_kmsg "booting android..."
-	elif [ -e $imagefile ] || [ -n "$_syspart" ]; then
+	elif [ -e "$imagefile" ] || [ -n "$_syspart" ]; then
 		# Regular image boot
 		tell_kmsg "Normal boot"
 
