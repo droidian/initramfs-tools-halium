@@ -15,7 +15,7 @@ usage() {
 -a|--arch     Architecture to create initrd for. Default armhf
 -m|--mirror   Custom mirror URL to use. Must serve your arch.
 -r|--recovery Build a recovery image
--c|--compress Compression to use
+-c|--compress Compression to use (gzip, lz4, or raw)
 -n|--name     Target file name
 "
 }
@@ -162,7 +162,18 @@ mv ${DESTDIR}/usr/lib/* ${DESTDIR}/lib
 # Move the linker in a known place
 mv -v ${DESTDIR}/lib/*/ld-linux-*.so.* ${DESTDIR}/lib/droidian-minienv-linker.so
 
-if [ "${COMPRESS}" = "lz4" ] && [ ! -e "${ROOT}/usr/bin/lz4-wrapper" ]; then
+if [ "${COMPRESS}" = "raw" ]; then
+	# mkinitramfs expects a compression command and may pass options that cat
+	# does not support, so use a wrapper that discards them.
+	if [ ! -e "${ROOT}/usr/bin/cat-wrapper" ]; then
+		cat > ${ROOT}/usr/bin/cat-wrapper <<EOF
+#!/bin/sh -x
+exec cat
+EOF
+		chmod +x ${ROOT}/usr/bin/cat-wrapper
+	fi
+	COMPRESS="cat-wrapper"
+elif [ "${COMPRESS}" = "lz4" ] && [ ! -e "${ROOT}/usr/bin/lz4-wrapper" ]; then
 	# This is unfortunately needed as mkinitramfs checks for the command
 	# existence, so we can't overload the compress variable
 	cat > ${ROOT}/usr/bin/lz4-wrapper <<EOF
