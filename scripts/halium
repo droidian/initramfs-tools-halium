@@ -748,6 +748,8 @@ mountroot() {
 
 	mount_vendor_partitions "$ab_slot_suffix"
 
+	halium_hook load_extra_kernel_modules
+
 	# Check if we should prefer LVM mounts. If that's the case, try
 	# mounting the droidian-rootfs LV first, then fallback to the standard
 	# halium way (where we assume that userdata is a mountable partition)
